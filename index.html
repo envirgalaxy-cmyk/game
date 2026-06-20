@@ -6,7 +6,7 @@
 <title>EnvirGame Super Miro</title>
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box;touch-action:none}
+*{margin:0;padding:0;box-sizing:border-box}
 html,body{
   width:100%;
   height:100%;
@@ -14,6 +14,10 @@ html,body{
   background:#06111f;
   color:#fff;
   font-family:Arial,sans-serif;
+  overscroll-behavior:none;
+  touch-action:manipulation;
+  -webkit-user-select:none;
+  user-select:none;
 }
 .wrap{
   width:100vw;
@@ -44,6 +48,7 @@ button{
   color:#06111f;
   font-weight:bold;
   cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
 }
 canvas{
   width:960px;
@@ -54,6 +59,7 @@ canvas{
   border-radius:18px;
   box-shadow:0 0 25px #00e5ff;
   background:#000;
+  touch-action:none;
 }
 .info{
   text-align:center;
@@ -70,6 +76,9 @@ canvas{
   align-items:center;
   padding:8px 14px;
   gap:20px;
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
 }
 .leftPad,.rightPad{
   display:flex;
@@ -86,6 +95,13 @@ canvas{
   font-size:30px;
   font-weight:bold;
   box-shadow:0 0 18px rgba(0,229,255,.5);
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none;
+}
+.touchBtn:active,.touchBtn.pressed{
+  transform:scale(.92);
+  background:rgba(0,229,255,.45);
 }
 .jumpBtn{
   width:92px;
@@ -118,19 +134,19 @@ canvas{
   <h1>🎮 EnvirGame Super Miro - 10 Hard Levels</h1>
 
   <div class="topBar">
-    <button onclick="restartGame()">Restart Game</button>
+    <button type="button" onclick="restartGame()">Restart Game</button>
   </div>
 
   <canvas id="game" width="960" height="520"></canvas>
 
   <div class="mobilePad">
     <div class="leftPad">
-      <button class="touchBtn" id="leftBtn">⬅</button>
-      <button class="touchBtn" id="rightBtn">➡</button>
+      <button type="button" class="touchBtn" id="leftBtn">⬅</button>
+      <button type="button" class="touchBtn" id="rightBtn">➡</button>
     </div>
 
     <div class="rightPad">
-      <button class="touchBtn jumpBtn" id="jumpBtn">JUMP</button>
+      <button type="button" class="touchBtn jumpBtn" id="jumpBtn">JUMP</button>
     </div>
   </div>
 
@@ -258,37 +274,72 @@ document.addEventListener("keyup",(e)=>{
   if(e.code==="ArrowRight" || e.code==="KeyD") keys.right = false;
 });
 
-/* MOBILE BUTTONS */
-function holdButton(btn, keyName){
-  btn.addEventListener("touchstart",(e)=>{
-    e.preventDefault();
-    keys[keyName] = true;
-  });
-  btn.addEventListener("touchend",(e)=>{
-    e.preventDefault();
-    keys[keyName] = false;
-  });
-  btn.addEventListener("mousedown",()=>{
-    keys[keyName] = true;
-  });
-  btn.addEventListener("mouseup",()=>{
-    keys[keyName] = false;
-  });
-  btn.addEventListener("mouseleave",()=>{
-    keys[keyName] = false;
-  });
+/* MOBILE TOUCH CONTROLS - FIXED */
+function resetMobileKeys(){
+  keys.left = false;
+  keys.right = false;
+  document.querySelectorAll(".touchBtn").forEach(btn => btn.classList.remove("pressed"));
 }
 
-holdButton(document.getElementById("leftBtn"),"left");
-holdButton(document.getElementById("rightBtn"),"right");
+function setupMoveButton(id, keyName){
+  const btn = document.getElementById(id);
 
-document.getElementById("jumpBtn").addEventListener("touchstart",(e)=>{
+  const press = (e) => {
+    e.preventDefault();
+    keys[keyName] = true;
+    btn.classList.add("pressed");
+    if(e.pointerId !== undefined && btn.setPointerCapture){
+      try{ btn.setPointerCapture(e.pointerId); }catch(err){}
+    }
+  };
+
+  const release = (e) => {
+    if(e) e.preventDefault();
+    keys[keyName] = false;
+    btn.classList.remove("pressed");
+  };
+
+  btn.addEventListener("pointerdown", press, {passive:false});
+  btn.addEventListener("pointerup", release, {passive:false});
+  btn.addEventListener("pointercancel", release, {passive:false});
+  btn.addEventListener("lostpointercapture", release, {passive:false});
+  btn.addEventListener("contextmenu", (e)=>e.preventDefault());
+}
+
+setupMoveButton("leftBtn","left");
+setupMoveButton("rightBtn","right");
+
+const jumpButton = document.getElementById("jumpBtn");
+jumpButton.addEventListener("pointerdown",(e)=>{
+  e.preventDefault();
+  jumpButton.classList.add("pressed");
+  jump();
+},{passive:false});
+
+jumpButton.addEventListener("pointerup",(e)=>{
+  e.preventDefault();
+  jumpButton.classList.remove("pressed");
+},{passive:false});
+
+jumpButton.addEventListener("pointercancel",()=>{
+  jumpButton.classList.remove("pressed");
+});
+
+jumpButton.addEventListener("contextmenu",(e)=>e.preventDefault());
+
+canvas.addEventListener("pointerdown",(e)=>{
   e.preventDefault();
   jump();
-});
-document.getElementById("jumpBtn").addEventListener("click",jump);
+},{passive:false});
 
-canvas.addEventListener("click",jump);
+document.addEventListener("touchmove",(e)=>{
+  if(e.target.closest(".mobilePad") || e.target === canvas){
+    e.preventDefault();
+  }
+},{passive:false});
+
+window.addEventListener("blur", resetMobileKeys);
+window.addEventListener("orientationchange", resetMobileKeys);
 
 function jump(){
   if(gameState==="over" || gameState==="winner"){
