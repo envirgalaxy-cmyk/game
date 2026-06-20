@@ -118,11 +118,19 @@ canvas{
     width:100vw;
     max-width:100vw;
     height:auto;
-    max-height:55vh;
+    max-height:50vh;
     border-radius:10px;
     border-width:2px;
   }
-  .mobilePad{display:flex}
+  .mobilePad{
+    display:flex;
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:12px;
+    margin:auto;
+    padding:0 18px;
+  }
   .info{font-size:12px}
   .topBar button{padding:8px 14px}
 }
@@ -274,65 +282,84 @@ document.addEventListener("keyup",(e)=>{
   if(e.code==="ArrowRight" || e.code==="KeyD") keys.right = false;
 });
 
-/* MOBILE TOUCH CONTROLS - FIXED */
+/* MOBILE TOUCH CONTROLS - FIXED FOR MOBILE GAMEPLAY */
 function resetMobileKeys(){
   keys.left = false;
   keys.right = false;
   document.querySelectorAll(".touchBtn").forEach(btn => btn.classList.remove("pressed"));
 }
 
-function setupMoveButton(id, keyName){
+function setupHoldButton(id, keyName){
   const btn = document.getElementById(id);
 
-  const press = (e) => {
-    e.preventDefault();
+  function press(e){
+    if(e) e.preventDefault();
     keys[keyName] = true;
     btn.classList.add("pressed");
-    if(e.pointerId !== undefined && btn.setPointerCapture){
-      try{ btn.setPointerCapture(e.pointerId); }catch(err){}
-    }
-  };
+  }
 
-  const release = (e) => {
+  function release(e){
     if(e) e.preventDefault();
     keys[keyName] = false;
     btn.classList.remove("pressed");
-  };
+  }
 
-  btn.addEventListener("pointerdown", press, {passive:false});
-  btn.addEventListener("pointerup", release, {passive:false});
-  btn.addEventListener("pointercancel", release, {passive:false});
-  btn.addEventListener("lostpointercapture", release, {passive:false});
+  // Touch events for mobile
+  btn.addEventListener("touchstart", press, { passive:false });
+  btn.addEventListener("touchend", release, { passive:false });
+  btn.addEventListener("touchcancel", release, { passive:false });
+
+  // Pointer events for modern browsers
+  btn.addEventListener("pointerdown", press, { passive:false });
+  btn.addEventListener("pointerup", release, { passive:false });
+  btn.addEventListener("pointercancel", release, { passive:false });
+  btn.addEventListener("pointerleave", release, { passive:false });
+
+  // Mouse events for desktop testing
+  btn.addEventListener("mousedown", press);
+  btn.addEventListener("mouseup", release);
+  btn.addEventListener("mouseleave", release);
+
   btn.addEventListener("contextmenu", (e)=>e.preventDefault());
 }
 
-setupMoveButton("leftBtn","left");
-setupMoveButton("rightBtn","right");
+setupHoldButton("leftBtn", "left");
+setupHoldButton("rightBtn", "right");
 
 const jumpButton = document.getElementById("jumpBtn");
-jumpButton.addEventListener("pointerdown",(e)=>{
-  e.preventDefault();
+
+function jumpPress(e){
+  if(e) e.preventDefault();
   jumpButton.classList.add("pressed");
   jump();
-},{passive:false});
+}
 
-jumpButton.addEventListener("pointerup",(e)=>{
+function jumpRelease(e){
+  if(e) e.preventDefault();
+  jumpButton.classList.remove("pressed");
+}
+
+jumpButton.addEventListener("touchstart", jumpPress, { passive:false });
+jumpButton.addEventListener("touchend", jumpRelease, { passive:false });
+jumpButton.addEventListener("touchcancel", jumpRelease, { passive:false });
+jumpButton.addEventListener("pointerdown", jumpPress, { passive:false });
+jumpButton.addEventListener("pointerup", jumpRelease, { passive:false });
+jumpButton.addEventListener("pointercancel", jumpRelease, { passive:false });
+jumpButton.addEventListener("mousedown", jumpPress);
+jumpButton.addEventListener("mouseup", jumpRelease);
+jumpButton.addEventListener("contextmenu", (e)=>e.preventDefault());
+
+// Canvas tap restart only when game over/win. During playing canvas tap won't disturb movement.
+canvas.addEventListener("touchstart", (e)=>{
   e.preventDefault();
-  jumpButton.classList.remove("pressed");
+  if(gameState === "over" || gameState === "winner") restartGame();
 },{passive:false});
 
-jumpButton.addEventListener("pointercancel",()=>{
-  jumpButton.classList.remove("pressed");
+canvas.addEventListener("click", ()=>{
+  if(gameState === "over" || gameState === "winner") restartGame();
 });
 
-jumpButton.addEventListener("contextmenu",(e)=>e.preventDefault());
-
-canvas.addEventListener("pointerdown",(e)=>{
-  e.preventDefault();
-  jump();
-},{passive:false});
-
-document.addEventListener("touchmove",(e)=>{
+document.addEventListener("touchmove", (e)=>{
   if(e.target.closest(".mobilePad") || e.target === canvas){
     e.preventDefault();
   }
